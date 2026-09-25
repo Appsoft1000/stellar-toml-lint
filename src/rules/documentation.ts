@@ -8,6 +8,7 @@ import {
   isSameOrSubdomain,
   isString,
   isUrl,
+  isDisposableEmail,
 } from '../predicates.js';
 
 /** Reads the `[DOCUMENTATION]` table, or `undefined` if absent/malformed. */
@@ -117,7 +118,7 @@ export const documentationRules: Rule[] = [
             position: ctx.locate('DOCUMENTATION.ORG_LOGO'),
             helpUri: specUrl('organization-documentation'),
           });
-        } else if (!/\.png(\?|#|$)/i.test(String(logo))) {
+        } else if (!/\\.png(\\?|#|$)/i.test(String(logo))) {
           ctx.report({
             rule: 'documentation/urls',
             category: 'documentation',
@@ -158,6 +159,36 @@ export const documentationRules: Rule[] = [
           position: ctx.locate(`DOCUMENTATION.${field}`),
           helpUri: specUrl('organization-documentation'),
           suggestion: 'SEP-1 requires attestation documents to live on your own domain.',
+        });
+      }
+    },
+  },
+
+  {
+    id: 'documentation/disposable-email',
+    category: 'documentation',
+    severity: 'warning',
+    description: 'Contact emails must not use disposable or temporary domains',
+    run(ctx) {
+      const documentation = documentationOf(ctx.doc);
+      if (!documentation) return;
+
+      for (const field of ['ORG_OFFICIAL_EMAIL', 'ORG_SUPPORT_EMAIL']) {
+        const value = documentation[field];
+        if (value === undefined) continue;
+
+        if (!isEmail(value)) continue;
+        if (!isDisposableEmail(value)) continue;
+
+        const domain = String(value).split('@')[1]?.toLowerCase();
+        ctx.report({
+          rule: 'documentation/disposable-email',
+          category: 'documentation',
+          message: `DOCUMENTATION.${field} uses a disposable email domain (${domain})`,
+          path: `DOCUMENTATION.${field}`,
+          position: ctx.locate(`DOCUMENTATION.${field}`),
+          helpUri: specUrl('organization-documentation'),
+          suggestion: 'Provide a legitimate, permanently maintained email address instead of a throwaway one.',
         });
       }
     },
@@ -252,7 +283,7 @@ export const documentationRules: Rule[] = [
       if (phone === undefined) return;
       if (isE164(phone)) return;
 
-      const digits = isString(phone) ? phone.replace(/[^\d]/g, '') : '';
+      const digits = isString(phone) ? phone.replace(/[^\\d]/g, '') : '';
       ctx.report({
         rule: 'documentation/phone-e164',
         category: 'documentation',

@@ -8,6 +8,46 @@
  */
 import { StrKey, Networks } from '@stellar/stellar-base';
 
+/**
+ * Common disposable / throwaway email domains. Kept as a static, dependency-free
+ * list: the linter runs offline and must not pull in a runtime package just to
+ * catch a low-quality contact address.
+ */
+export const DISPOSABLE_EMAIL_DOMAINS = [
+  'mailinator.com',
+  'guerrillamail.com',
+  'guerrillamailblock.com',
+  'tempmail.com',
+  'temp-mail.org',
+  '10minutemail.com',
+  '10minutemail.net',
+  'throwawaymail.com',
+  'throwawayemail.com',
+  'fakeinbox.com',
+  'yopmail.com',
+  'mailcatch.com',
+  'getnada.com',
+  'doublemail.com',
+  'spamgourmet.com',
+  'sharklasers.com',
+  'mailinator.org',
+] as const;
+
+export type DisposableEmailDomain = (typeof DISPOSABLE_EMAIL_DOMAINS)[number];
+
+/**
+ * True when `email` carries a disposable or throwaway domain. The host is
+ * compared case-insensitively against the curated denylist so `user@MAILANATOR.COM`
+ * is still flagged.
+ */
+export function isDisposableEmail(email: unknown): boolean {
+  if (!isString(email)) return false;
+  const at = email.indexOf('@');
+  if (at < 0) return false;
+  const host = email.slice(at + 1).toLowerCase();
+  return DISPOSABLE_EMAIL_DOMAINS.some((domain) => domain === host);
+}
+
 /** Maximum file size SEP-1 permits. */
 export const MAX_FILE_BYTES = 100 * 1024;
 
@@ -49,7 +89,9 @@ export function isContractId(v: unknown): boolean {
   return isString(v) && StrKey.isValidContract(v);
 }
 
-/** Any absolute http(s) URL. */
+/*
+ * Any absolute http(s) URL.
+ */
 export function isUrl(v: unknown): boolean {
   if (!isString(v)) return false;
   try {
@@ -60,7 +102,9 @@ export function isUrl(v: unknown): boolean {
   }
 }
 
-/** SEP-1 requires `https://` for every endpoint field. */
+/**
+ * SEP-1 requires `https://` for every endpoint field.
+ */
 export function isHttpsUrl(v: unknown): boolean {
   if (!isString(v)) return false;
   try {

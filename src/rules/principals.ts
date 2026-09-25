@@ -1,6 +1,6 @@
 import type { Rule } from '../types.js';
 import { KNOWN_PRINCIPAL_FIELDS, specUrl } from '../spec.js';
-import { isEmail, isHex, isString } from '../predicates.js';
+import { isDisposableEmail, isEmail, isHex, isString } from '../predicates.js';
 
 /** Reads `[[PRINCIPALS]]` as a list of tables, ignoring malformed entries. */
 function principalsOf(doc: Record<string, unknown>): Record<string, unknown>[] {
@@ -51,12 +51,39 @@ export const principalRules: Rule[] = [
   },
 
   {
+    id: 'principals/disposable-email',
+    category: 'principals',
+    severity: 'warning',
+    description: 'Principal contact emails must not use disposable domains',
+    run(ctx) {
+      for (const [i, entry] of principalsOf(ctx.doc).entries()) {
+        const path = `PRINCIPALS[${i}]`;
+        const email = entry.email;
+
+        if (!isEmail(email)) continue;
+        if (!isDisposableEmail(email)) continue;
+
+        const domain = String(email).split('@')[1]?.toLowerCase();
+        ctx.report({
+          rule: 'principals/disposable-email',
+          category: 'principals',
+          message: `${path}.email uses a disposable email domain (${domain})`,
+          path: `${path}.email`,
+          position: ctx.locate(`${path}.email`),
+          helpUri: specUrl('point-of-contact-documentation'),
+          suggestion: 'Provide a legitimate, permanently maintained email address instead of a throwaway one.',
+        });
+      }
+    },
+  },
+
+  {
     id: 'principals/required-fields',
     category: 'principals',
     severity: 'warning',
     description: 'Each principal should give a name and a business email',
     run(ctx) {
-      principalsOf(ctx.doc).forEach((entry, i) => {
+      for (const [i, entry] of principalsOf(ctx.doc).entries()) {
         const path = `PRINCIPALS[${i}]`;
 
         for (const field of ['name', 'email'] as const) {
@@ -84,7 +111,7 @@ export const principalRules: Rule[] = [
             helpUri: specUrl('point-of-contact-documentation'),
           });
         }
-      });
+      }
     },
   },
 
@@ -94,7 +121,7 @@ export const principalRules: Rule[] = [
     severity: 'error',
     description: 'Identity photo hashes must be hex-encoded SHA-256 digests',
     run(ctx) {
-      principalsOf(ctx.doc).forEach((entry, i) => {
+      for (const [i, entry] of principalsOf(ctx.doc).entries()) {
         const path = `PRINCIPALS[${i}]`;
 
         for (const field of ['id_photo_hash', 'verification_photo_hash'] as const) {
@@ -131,7 +158,7 @@ export const principalRules: Rule[] = [
             });
           }
         }
-      });
+      }
     },
   },
 
@@ -141,7 +168,7 @@ export const principalRules: Rule[] = [
     severity: 'warning',
     description: 'Principal social fields should hold bare handles, not URLs',
     run(ctx) {
-      principalsOf(ctx.doc).forEach((entry, i) => {
+      for (const [i, entry] of principalsOf(ctx.doc).entries()) {
         const path = `PRINCIPALS[${i}]`;
 
         for (const field of ['twitter', 'github', 'keybase', 'telegram'] as const) {
@@ -162,7 +189,7 @@ export const principalRules: Rule[] = [
             suggestion: `Use "${handle}".`,
           });
         }
-      });
+      }
     },
   },
 
@@ -172,7 +199,7 @@ export const principalRules: Rule[] = [
     severity: 'info',
     description: 'Flags principal fields SEP-1 does not define',
     run(ctx) {
-      principalsOf(ctx.doc).forEach((entry, i) => {
+      for (const [i, entry] of principalsOf(ctx.doc).entries()) {
         const path = `PRINCIPALS[${i}]`;
         for (const key of Object.keys(entry)) {
           if (KNOWN_PRINCIPAL_FIELDS.has(key)) continue;
@@ -185,7 +212,7 @@ export const principalRules: Rule[] = [
             helpUri: specUrl('point-of-contact-documentation'),
           });
         }
-      });
+      }
     },
   },
 ];
